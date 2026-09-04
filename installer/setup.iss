@@ -1,0 +1,40 @@
+; Inno Setup script - build dengan: iscc installer\setup.iss
+; Download Inno Setup: https://jrsoftware.org/isdl.php
+
+#define AppName "SAKEDAP Penerimaan"
+#define AppVersion "1.0.0"
+#define AppPublisher "SAKEDAP"
+#define AppExeName "Penerimaan.exe"
+
+[Setup]
+AppId={{8B3C1A64-7E42-4C0B-9E3F-2A15D7C9F001}
+AppName={#AppName}
+AppVersion={#AppVersion}
+AppPublisher={#AppPublisher}
+DefaultDirName={autopf}\SAKEDAP\Penerimaan
+DefaultGroupName=SAKEDAP
+OutputDir=..\dist
+OutputBaseFilename=SAKEDAP-Penerimaan-Setup-{#AppVersion}
+Compression=lzma2
+SolidCompression=yes
+WizardStyle=modern
+; Butuh admin karena install ke Program Files
+PrivilegesRequired=admin
+ArchitecturesInstallIn64BitMode=x64compatible
+
+[Languages]
+Name: "id"; MessagesFile: "compiler:Default.isl"
+
+[Tasks]
+Name: "desktopicon"; Description: "Buat shortcut di Desktop"; GroupDescription: "Shortcut:"
+
+[Files]
+; Sumber = hasil dotnet publish (self-contained, lihat README)
+Source: "..\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[Icons]
+Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
+
+[Run]
+Filename: "{app}\{#AppExeName}"; Description: "Jalankan {#AppName}"; Flags: nowait postinstall skipifsilent
