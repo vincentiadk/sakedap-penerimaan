@@ -16,29 +16,35 @@ public static class LabelTemplate
     private static readonly char[] Terlarang = { '^', '~', '\\', '\r', '\n' };
 
     /// <summary>
-    /// Satu berkas ZPL berisi label untuk seluruh dus. Dikirim sebagai satu
-    /// pekerjaan cetak supaya labelnya keluar berurutan dan tidak terselip
-    /// di antara cetakan lain.
+    /// Satu berkas ZPL berisi label untuk seluruh kardus yang diberikan.
+    /// Dikirim sebagai satu pekerjaan cetak supaya labelnya keluar berurutan
+    /// dan tidak terselip di antara cetakan lain.
+    ///
+    /// Tiap kardus adalah objek <see cref="PaketPenerimaan"/> tersendiri
+    /// dengan nomor antriannya sendiri, jadi tidak ada lagi parameter
+    /// "mulai dari dus ke berapa" - pemanggil cukup mengirim kardus yang
+    /// memang mau dicetak.
     /// </summary>
-    /// <param name="dusMulai">
-    /// Dus pertama yang dicetak. Dipakai saat dus susulan datang: labelnya
-    /// melanjutkan penomoran, dan label yang sudah tertempel tidak dicetak ulang.
-    /// </param>
-    public static string Build(PaketPenerimaan paket, PrinterSettings printer, int dusMulai = 1)
+    public static string Build(
+        IEnumerable<PaketPenerimaan> kardus, PrinterSettings printer)
     {
-        if (!paket.SiapCetak)
-            throw new InvalidOperationException(
-                "Nomor antrian belum ada. Label hanya bisa dicetak setelah penerimaan tersimpan di SAKEDAP.");
-
-        var total = Math.Max(1, paket.JumlahDus);
-        var mulai = Math.Clamp(dusMulai, 1, total);
         var sb = new StringBuilder();
 
-        for (var dus = mulai; dus <= total; dus++)
-            sb.Append(BuildSatu(paket, printer, dus, total));
+        foreach (var k in kardus)
+        {
+            if (!k.SiapCetak)
+                throw new InvalidOperationException(
+                    "Nomor antrian belum ada. Label hanya bisa dicetak setelah penerimaan tersimpan di SAKEDAP.");
+
+            sb.Append(BuildSatu(k, printer, k.NomorDus, Math.Max(k.NomorDus, k.JumlahDus)));
+        }
 
         return sb.ToString();
     }
+
+    /// <summary>Satu kardus saja.</summary>
+    public static string Build(PaketPenerimaan kardus, PrinterSettings printer)
+        => Build(new[] { kardus }, printer);
 
     private static string BuildSatu(PaketPenerimaan paket, PrinterSettings printer, int dus, int total)
     {
@@ -70,9 +76,9 @@ public static class LabelTemplate
             // dengan scan, bukan mengetik ulang nomornya.
             sb.Append($"^FO0,{Skala(tinggi, 0.65)}^BY2");
             sb.Append($"^FB{lebar},1,0,C,0");
-            // Barcode memuat nomor dus juga, supaya tiap kardus bisa dilacak
-            // posisinya sendiri. Teks besar di atas tetap nomor antrian saja.
-            sb.Append($"^BCN,{Skala(tinggi, 0.26)},N,N,N^FD{Bersihkan(NomorAntrian.Barcode(paket.NomorAntrian, dus), 30)}^FS");
+            // Isi barcode persis sama dengan nomor antrian yang tercetak besar
+            // di atasnya - nomor itu sudah milik kardus ini sendiri.
+            sb.Append($"^BCN,{Skala(tinggi, 0.26)},N,N,N^FD{Bersihkan(NomorAntrian.Barcode(paket.NomorAntrian), 30)}^FS");
         }
 
         sb.Append("^XZ");

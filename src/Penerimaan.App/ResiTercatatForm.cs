@@ -60,10 +60,15 @@ public sealed class ResiTercatatForm : Form
             IntegralHeight = false
         };
 
+        // Satu baris per KIRIMAN, bukan per kardus - yang ditampilkan adalah
+        // kardus pertama tiap kiriman, dan nomor antriannya sekaligus jadi
+        // penanda kirimannya. Menampilkan tiap kardus akan membuat petugas
+        // mengira resinya sudah ter-scan berkali-kali.
         foreach (var p in sudahAda)
         {
             daftar.Items.Add(
-                $"{p.NomorAntrian}   {p.JumlahDus} dus   {p.WaktuTerima:dd/MM/yyyy HH:mm}   oleh {p.NamaPetugasPenerima}");
+                $"Kiriman {p.KirimanId}   {p.JumlahDus} dus   "
+                + $"{p.WaktuTerima:dd/MM/yyyy HH:mm}   oleh {p.NamaPetugasPenerima}");
         }
 
         var pilihan = new Label

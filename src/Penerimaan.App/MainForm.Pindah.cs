@@ -36,31 +36,30 @@ public partial class MainForm
             return;
         }
 
-        // Barcode label memuat nomor dus: KCKR_0826_1335-2. Label lama tanpa
-        // akhiran tetap diterima, dan diperlakukan sebagai seluruh kardus.
-        var (nomorAntrian, nomorDus) = NomorAntrian.BacaBarcode(isiBarcode);
+        // Isi barcode adalah nomor antrian kardus itu sendiri. Akhiran "-n"
+        // dari label versi lama dibuang oleh BacaBarcode.
+        var nomorAntrian = NomorAntrian.BacaBarcode(isiBarcode);
 
         SetBusy(true);
         try
         {
-            var paket = await _repo.CariAntrianAsync(nomorAntrian);
+            var kardus = await _repo.CariAntrianAsync(nomorAntrian);
 
-            if (paket is null)
+            if (kardus is null)
             {
                 HasilPindahTampil($"{nomorAntrian}{Environment.NewLine}tidak ditemukan", Color.Firebrick);
                 return;
             }
 
-            var hasil = await _repo.PindahLokasiAsync(
-                paket, nomorDus, _lokasiPc, _petugas.Nama, _ipLokal);
+            var hasil = await _repo.PindahLokasiAsync(kardus, _lokasiPc, _petugas.Nama, _ipLokal);
 
-            var labelDus = nomorDus > 0 ? $"DUS {nomorDus}" : "Semua dus";
+            var labelDus = $"DUS {kardus.NomorDus} DARI {hasil.TotalDus}";
             var progres = $"{hasil.DusDiTujuan} dari {hasil.TotalDus} dus di {_lokasiPc.Nama}";
 
             if (hasil.SudahDiSini)
             {
                 HasilPindahTampil(
-                    $"{paket.NomorAntrian}  |  {labelDus}{Environment.NewLine}"
+                    $"{kardus.NomorAntrian}  |  {labelDus}{Environment.NewLine}"
                     + $"sudah di {_lokasiPc.Nama}{Environment.NewLine}{progres}",
                     Color.DarkGoldenrod);
                 return;
@@ -76,7 +75,7 @@ public partial class MainForm
             var lengkap = hasil.DusDiTujuan == hasil.TotalDus;
 
             HasilPindahTampil(
-                $"{paket.NomorAntrian}  |  {labelDus}{Environment.NewLine}"
+                $"{kardus.NomorAntrian}  |  {labelDus}{Environment.NewLine}"
                 + $"{asal}  →  {_lokasiPc.Nama}{Environment.NewLine}{progres}",
                 lengkap ? Color.ForestGreen : Color.DarkOrange);
 
@@ -118,12 +117,56 @@ public partial class MainForm
             // Memindahkan paket ke lokasi yang tidak diketahui lebih buruk
             // daripada tidak memindahkan sama sekali.
             tabPindah.Enabled = false;
-            lblLokasiPindah.Text = "PC ini belum dipetakan ke lokasi. Hubungi admin SAKEDAP.";
+            lblLokasiPindah.Text = AlasanLokasiKosong();
             lblLokasiPindah.ForeColor = Color.Firebrick;
             return;
         }
 
         lblLokasiPindah.Text = $"Paket yang di-scan akan dipindahkan ke: {_lokasiPc.Nama}";
         lblLokasiPindah.ForeColor = SystemColors.ControlText;
+    }
+
+    /// <summary>
+    /// Dua sebab lokasi tidak ketemu, dan penanganannya berbeda - jadi
+    /// pesannya juga harus berbeda. "Hubungi admin" saja membuat admin
+    /// menebak-nebak, padahal aplikasi sudah tahu persis mana yang kurang.
+    /// </summary>
+    private string AlasanLokasiKosong()
+    {
+        // Query-nya GAGAL, bukan tidak menemukan baris. Sebabnya biasanya
+        // kolom atau tabel yang belum ada - misalnya BRANCH_ID belum
+        // ditambahkan ke LETTER_ANTRIAN_PC. Menyebutnya "belum dipetakan"
+        // akan membuat admin memeriksa data yang sebenarnya sudah benar.
+        if (!string.IsNullOrWhiteSpace(_galatLokasi))
+        {
+            return "Pencarian lokasi GAGAL - ini bukan berarti pemetaannya belum ada."
+                 + $"{Environment.NewLine}{_galatLokasi}"
+                 + $"{Environment.NewLine}Periksa apakah kolom BRANCH_ID sudah ada di "
+                 + "LETTER_ANTRIAN_PC dan LETTER_ANTRIAN_LOKASI.";
+        }
+
+        // Satuan kerja tidak terbaca dari respons login. Ini masalah nama
+        // field, bukan masalah data - jadi field yang tersedia ikut disebut
+        // supaya bisa langsung dicocokkan tanpa membongkar respons API.
+        if (string.IsNullOrWhiteSpace(_petugas.BranchId))
+        {
+            var field = string.IsNullOrWhiteSpace(_petugas.FieldLoginTersedia)
+                ? "(respons login kosong)"
+                : _petugas.FieldLoginTersedia;
+
+            return "Satuan kerja (branch) tidak terbaca dari respons login, "
+                 + "sehingga lokasi tidak bisa ditentukan."
+                 + $"{Environment.NewLine}Field yang dikembalikan API: {field}"
+                 + $"{Environment.NewLine}Sementara ini, isi Lokasi.BranchIdOverride "
+                 + "di appsettings.json (37 untuk Perpusnas).";
+        }
+
+        // Satuan kerja terbaca, tapi IP ini belum terdaftar untuknya. Ini
+        // masalah data yang bisa langsung diperbaiki admin.
+        var ip = string.IsNullOrWhiteSpace(_ipLokal) ? "(tidak terdeteksi)" : _ipLokal;
+
+        return $"IP {ip} belum dipetakan ke lokasi mana pun pada satuan kerja "
+             + $"{_petugas.BranchId}.{Environment.NewLine}"
+             + "Minta admin SAKEDAP menambahkannya di LETTER_ANTRIAN_PC.";
     }
 }

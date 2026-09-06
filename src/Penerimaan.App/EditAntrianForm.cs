@@ -12,6 +12,15 @@ namespace Penerimaan.App;
 /// Lokasi juga tidak ada di sini - lokasi tidak pernah diketik, melainkan
 /// ditentukan PC mana yang men-scan lewat tab Pindah Lokasi.
 ///
+/// Jumlah dus juga tidak: menambah dus berarti menerbitkan nomor antrian baru
+/// dan mencetak label baru, yang jalurnya lewat scan resi yang sama lalu
+/// "tambah dus susulan". Menguranginya berarti menghapus kardus yang labelnya
+/// sudah tertempel, dan itu urusan tombol Hapus. Menjadikannya kotak angka di
+/// sini akan tampak sepele padahal keduanya bukan sekadar mengubah data.
+///
+/// Yang diubah di sini berlaku untuk SELURUH kardus sekiriman - nama petugas
+/// dan waktu terima berulang di tiap barisnya.
+///
 /// Dialog sekecil ini ditulis tanpa berkas Designer terpisah.
 /// </summary>
 public sealed class EditAntrianForm : Form
@@ -21,7 +30,6 @@ public sealed class EditAntrianForm : Form
     private readonly TextBox _petugas = new();
     private readonly ComboBox _ekspedisi = new();
     private readonly ComboBox _media = new();
-    private readonly NumericUpDown _dus = new();
     private readonly DateTimePicker _waktu = new();
 
     private readonly string _labelDatangLangsung;
@@ -51,9 +59,6 @@ public sealed class EditAntrianForm : Form
 
         _petugas.Text = paket.NamaPetugasPenerima;
         _media.DropDownStyle = ComboBoxStyle.DropDownList;
-        _dus.Minimum = 1;
-        _dus.Maximum = 999;
-        _dus.Value = Math.Clamp(paket.JumlahDus, 1, 999);
         _waktu.Format = DateTimePickerFormat.Custom;
         _waktu.CustomFormat = "dd/MM/yyyy HH:mm";
         _waktu.Value = paket.WaktuTerima == default ? DateTime.Now : paket.WaktuTerima;
@@ -68,7 +73,6 @@ public sealed class EditAntrianForm : Form
         Tambah("Nama Petugas *", _petugas, ref y);
         Tambah("Ekspedisi *", _ekspedisi, ref y);
         Tambah("Jenis Media *", _media, ref y);
-        Tambah("Jumlah Dus *", _dus, ref y);
         Tambah("Tanggal Terima *", _waktu, ref y);
 
         var simpan = new Button
@@ -146,26 +150,11 @@ public sealed class EditAntrianForm : Form
             return;
         }
 
-        // Menurunkan jumlah dus akan membuat label yang sudah tertempel jadi
-        // yatim - DUS 4 ada di kardus, tapi datanya bilang cuma 3.
-        if (_dus.Value < _paket.JumlahDus)
-        {
-            var jawab = MessageBox.Show(this,
-                $"Jumlah dus diturunkan dari {_paket.JumlahDus} ke {_dus.Value}. "
-                + "Label yang sudah tercetak untuk dus di atas angka baru menjadi tidak berlaku."
-                + $"{Environment.NewLine}{Environment.NewLine}Lanjutkan?",
-                "Kurangi jumlah dus", MessageBoxButtons.YesNo, MessageBoxIcon.Warning,
-                MessageBoxDefaultButton.Button2);
-
-            if (jawab != DialogResult.Yes) return;
-        }
-
         var langsung = _ekspedisi.Text.Trim() == _labelDatangLangsung;
 
         _paket.NamaPetugasPenerima = _petugas.Text.Trim();
         _paket.Cara = langsung ? CaraDatang.Langsung : CaraDatang.Ekspedisi;
         _paket.Ekspedisi = langsung ? "" : _ekspedisi.Text.Trim();
-        _paket.JumlahDus = (int)_dus.Value;
         _paket.WaktuTerima = _waktu.Value;
 
         var media = (JenisMedia)_media.SelectedItem!;

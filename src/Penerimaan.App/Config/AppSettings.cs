@@ -44,6 +44,15 @@ public sealed class AppSettings
 
             if (!string.IsNullOrWhiteSpace(lokal?.Inlis.Token))
                 settings.Inlis.Token = lokal.Inlis.Token;
+
+            // Satuan kerja berbeda di tiap pemasangan, jadi tempatnya memang
+            // di berkas per-mesin - bukan di appsettings.json yang sama untuk
+            // semua dan ikut terbundel ke installer.
+            if (!string.IsNullOrWhiteSpace(lokal?.Lokasi.BranchIdOverride))
+                settings.Lokasi.BranchIdOverride = lokal.Lokasi.BranchIdOverride;
+
+            if (!string.IsNullOrWhiteSpace(lokal?.Lokasi.IpOverride))
+                settings.Lokasi.IpOverride = lokal.Lokasi.IpOverride;
         }
 
         return settings;
@@ -75,6 +84,23 @@ public sealed class LokasiSettings
     /// deteksi. Berguna di PC dengan banyak kartu jaringan.
     /// </summary>
     public string IpOverride { get; set; } = "";
+
+    /// <summary>
+    /// SEMENTARA - satuan kerja PC ini, dipakai hanya bila respons login INLIS
+    /// belum memuat BRANCH_ID. 37 untuk Perpusnas.
+    ///
+    /// Respons API selalu menang bila memuatnya, jadi begitu isloginvalid
+    /// diperbarui, nilai di sini otomatis tidak terpakai lagi dan barisnya
+    /// bisa dibuang tanpa mengubah apa pun.
+    ///
+    /// Sengaja TIDAK diberi nilai bawaan 37. Kalau diberi, PC provinsi yang
+    /// dipasang tanpa menyunting berkas ini akan diam-diam menulis sebagai
+    /// Perpusnas - datanya masuk ke lingkup instansi lain dan nomor antriannya
+    /// berebut dengan deret Perpusnas. Kosong lalu gagal dengan pesan jelas
+    /// jauh lebih aman daripada benar untuk satu instansi dan salah diam-diam
+    /// untuk yang lain.
+    /// </summary>
+    public string BranchIdOverride { get; set; } = "";
 }
 
 public sealed class PrinterSettings

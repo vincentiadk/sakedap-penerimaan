@@ -15,6 +15,30 @@ khas Oracle.
 Endpoint yang sudah ada: `sso/login`, `isbn/*`, `penerbit/data`, `koleksi/*`.
 Semuanya POST, kredensial di body, respons `{status, message, data}`.
 
+## Yang dipakai aplikasi saat ini: INLIS langsung
+
+Endpoint Laravel di bawah belum ada, jadi untuk sementara aplikasi bicara
+langsung ke INLIS `Restful.aspx` - amplopnya berbeda, huruf besar di awal:
+`{Status, Message, Data}`.
+
+### `op=isloginvalid`
+
+Verifikasi kredensial pegawai. Yang dibaca aplikasi dari `Data`:
+
+| Field | Dipakai untuk |
+|---|---|
+| `Id` | Identitas pegawai; kosong berarti login ditolak |
+| `Name` / `FullName` | Nama yang ditampilkan di header |
+| `Nip` | Keterangan saja |
+| `BranchId` | **Satuan kerja.** Menentukan lokasi mana yang terlihat, dan bentuk nomor antrian - lihat docs/SPEC.md |
+
+**`BranchId` belum ada di respons saat ini; perubahannya masih ditunggu.**
+Sampai terpasang, aplikasi jatuh ke `Lokasi.BranchIdOverride` di
+`appsettings.local.json`. Respons API selalu menang begitu field-nya muncul,
+jadi tidak ada konfigurasi yang perlu diubah saat perubahan itu naik.
+
+Nilai `0` diperlakukan sama dengan tidak ada - itu bukan satuan kerja yang sah.
+
 ## Konvensi yang diikuti
 
 - Semua endpoint **POST**
@@ -133,7 +157,7 @@ Simpan penerimaan **dan terbitkan nomor antrian**.
     "id": "...",
     "nomorResi": "DEP0801111",
     "nomorAntrian": "KCKR_0826_1335",
-    "status": 1
+    "status": "diterima_satpam"
   }
 }
 ```

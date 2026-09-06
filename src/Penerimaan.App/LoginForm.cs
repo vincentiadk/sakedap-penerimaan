@@ -14,23 +14,20 @@ public partial class LoginForm : Form
 
     public Pegawai? Petugas { get; private set; }
 
-    public LoginForm(PenerimaanRepository repo, Lokasi? lokasi, string ip)
+    public LoginForm(PenerimaanRepository repo, string ip)
     {
         _repo = repo;
         InitializeComponent();
 
-        // Lokasi ditampilkan sejak layar masuk supaya petugas langsung sadar
-        // kalau PC ini belum dipetakan, sebelum sempat bekerja.
-        if (lokasi is null)
-        {
-            lblLokasi.Text = $"Lokasi belum diatur untuk IP {(ip.Length == 0 ? "(tidak terdeteksi)" : ip)}";
-            lblLokasi.ForeColor = Color.Firebrick;
-        }
-        else
-        {
-            lblLokasi.Text = $"Lokasi: {lokasi.Nama}";
-            lblLokasi.ForeColor = SystemColors.ControlText;
-        }
+        // Lokasi TIDAK bisa ditampilkan di sini lagi. Menentukannya butuh
+        // BRANCH_ID milik petugas, dan itu baru terbaca setelah login berhasil.
+        // Yang ditampilkan IP-nya saja - itu yang perlu disebut petugas ke
+        // admin kalau nanti lokasinya ternyata belum terpetakan.
+        lblLokasi.Text = ip.Length == 0
+            ? "IP PC tidak terdeteksi"
+            : $"IP PC: {ip}";
+
+        lblLokasi.ForeColor = ip.Length == 0 ? Color.Firebrick : SystemColors.GrayText;
     }
 
     private async void btnLogin_Click(object? sender, EventArgs e) => await LoginAsync();

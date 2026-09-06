@@ -1,6 +1,13 @@
 namespace Penerimaan.App.Models;
 
-/// <summary>Satu paket SSKCKR yang diterima petugas keamanan Gedung E.</summary>
+/// <summary>
+/// Satu KARDUS dari paket SSKCKR yang diterima petugas keamanan Gedung E.
+///
+/// Kiriman berisi empat kardus menghasilkan empat objek seperti ini, masing-
+/// masing dengan nomor antrian dan labelnya sendiri, terikat oleh
+/// <see cref="KirimanId"/> yang sama. Posisinya pun dilacak sendiri-sendiri,
+/// karena kardus satu kiriman sering berpindah tidak bersamaan.
+/// </summary>
 public sealed class PaketPenerimaan
 {
     /// <summary>Id baris di tabel penerimaan_paket. Kosong sebelum tersimpan.</summary>
@@ -24,8 +31,23 @@ public sealed class PaketPenerimaan
     public int JumlahJudul { get; set; }
     public int JumlahEks { get; set; }
 
-    /// <summary>Banyaknya dus dalam satu kiriman. Tiap dus dapat labelnya sendiri.</summary>
+    /// <summary>
+    /// Banyaknya kardus dalam kiriman ini. Nilainya sama di seluruh kardus
+    /// sekiriman, dan dicetak di label sebagai "DUS n DARI N".
+    /// </summary>
     public int JumlahDus { get; set; } = 1;
+
+    /// <summary>Kardus ke berapa dalam kirimannya, 1 sampai <see cref="JumlahDus"/>.</summary>
+    public int NomorDus { get; set; } = 1;
+
+    /// <summary>
+    /// Pengikat kardus sekiriman: nomor antrian kardus pertama. Kosong sampai
+    /// kiriman tersimpan, karena nomor antrian baru terbit di sisi server.
+    /// </summary>
+    public string KirimanId { get; set; } = "";
+
+    /// <summary>Satuan kerja pemilik kardus ini. 37 = Perpusnas.</summary>
+    public string BranchId { get; set; } = "";
 
     public string NamaPetugasPenerima { get; set; } = "";
     public DateTime WaktuTerima { get; set; } = DateTime.Now;
@@ -86,4 +108,43 @@ public enum StatusPaket
     DiLokasiTransit,
     DiterimaPegawaiKckr,
     Selesai
+}
+
+/// <summary>
+/// Padanan <see cref="StatusPaket"/> dengan kolom STATUS di LETTER_ANTRIAN.
+///
+/// Disimpan sebagai teks, bukan angka. Angka akan membuat arti sebuah baris
+/// bergantung pada urutan deklarasi enum di atas: menyisipkan satu anggota
+/// baru sebelum DiterimaSatpam diam-diam mengubah arti seluruh baris lama
+/// yang sudah ada di produksi, tanpa error apa pun. Teks juga sejalan dengan
+/// SUMBER dan CARA_DATANG di tabel yang sama, yang keduanya sudah varchar
+/// berpasangan dengan CHECK constraint.
+/// </summary>
+public static class StatusPaketDb
+{
+    public static string KeTeks(StatusPaket status) => status switch
+    {
+        StatusPaket.MenungguPenerimaan => "menunggu",
+        StatusPaket.DiterimaSatpam => "diterima_satpam",
+        StatusPaket.DiLokasiTransit => "transit",
+        StatusPaket.DiterimaPegawaiKckr => "diterima_kckr",
+        StatusPaket.Selesai => "selesai",
+        _ => "diterima_satpam"
+    };
+
+    /// <summary>
+    /// Nilai kosong atau tak dikenal dianggap "diterima_satpam": baris di
+    /// LETTER_ANTRIAN hanya lahir dari pencatatan di pos satpam, jadi itu
+    /// tebakan yang paling aman - lebih baik daripada melempar error dan
+    /// membuat seluruh daftar antrian gagal tampil karena satu baris aneh.
+    /// </summary>
+    public static StatusPaket Dari(string? teks) => teks?.Trim().ToLowerInvariant() switch
+    {
+        "menunggu" => StatusPaket.MenungguPenerimaan,
+        "diterima_satpam" => StatusPaket.DiterimaSatpam,
+        "transit" => StatusPaket.DiLokasiTransit,
+        "diterima_kckr" => StatusPaket.DiterimaPegawaiKckr,
+        "selesai" => StatusPaket.Selesai,
+        _ => StatusPaket.DiterimaSatpam
+    };
 }

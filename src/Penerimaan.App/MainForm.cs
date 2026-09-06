@@ -29,11 +29,11 @@ public partial class MainForm : Form
     private PaketPenerimaan? _aktif;
 
     /// <summary>
-    /// Dus pertama yang perlu dicetak. Selalu 1 untuk penerimaan baru, dan
-    /// meloncat ke dus berikutnya saat dus susulan ditambahkan - label yang
-    /// sudah tertempel di kardus tidak perlu dicetak lagi.
+    /// Kardus yang labelnya perlu dicetak. Berisi seluruh kardus untuk
+    /// penerimaan baru, dan hanya kardus susulan setelah dus ditambahkan -
+    /// label yang sudah tertempel di kardus tidak perlu dicetak lagi.
     /// </summary>
-    private int _cetakMulaiDus = 1;
+    private List<PaketPenerimaan> _cetak = new();
 
     /// <summary>
     /// Selama true, Tanggal Terima Paket terus mengikuti jam PC. Berubah jadi
@@ -52,14 +52,21 @@ public partial class MainForm : Form
 
     private readonly string _ipLokal;
 
+    /// <summary>
+    /// Pesan error saat mencari lokasi, bila pencariannya memang gagal - beda
+    /// dari sekadar tidak menemukan baris. Null berarti query berhasil.
+    /// </summary>
+    private readonly string? _galatLokasi;
+
     public MainForm(AppSettings settings, PenerimaanRepository repo, Pegawai petugas,
-        Lokasi? lokasiPc, string ipLokal)
+        Lokasi? lokasiPc, string ipLokal, string? galatLokasi = null)
     {
         _settings = settings;
         _repo = repo;
         _petugas = petugas;
         _lokasiPc = lokasiPc;
         _ipLokal = ipLokal;
+        _galatLokasi = galatLokasi;
         _outbox = new OutboxQueue();
 
         InitializeComponent();
@@ -67,7 +74,17 @@ public partial class MainForm : Form
         // Nama petugas penerima TIDAK diambil dari akun login: satu PC di pos
         // satpam dipakai bergantian beberapa petugas dengan satu akun aplikasi.
         // Jadi yang menerima paket diketik per transaksi.
-        lblAkun.Text = $"Akun: {petugas.Nama}";
+        // Satuan kerja ikut ditampilkan: satu berkas installer dipakai di
+        // Perpusnas maupun provinsi, jadi petugas perlu bisa memastikan
+        // aplikasinya mengenali dia sebagai satuan kerja yang benar.
+        // Sumber branch ikut disebut selama masih dari appsettings: keadaan
+        // sementara yang tidak terlihat akan mengendap jadi permanen.
+        lblAkun.Text = petugas.BranchId.Length == 0
+            ? $"Akun: {petugas.Nama}"
+            : petugas.BranchDariConfig
+                ? $"Akun: {petugas.Nama}  (branch {petugas.BranchId} - dari appsettings)"
+                : $"Akun: {petugas.Nama}  (branch {petugas.BranchId})";
+
         lblLokasi.Text = _lokasiPc is null ? "Lokasi: belum diatur" : $"Lokasi: {_lokasiPc.Nama}";
         lblLokasi.ForeColor = _lokasiPc is null ? Color.Firebrick : SystemColors.GrayText;
 
@@ -294,26 +311,32 @@ public partial class MainForm : Form
     }
 
     /// <summary>
-    /// Dus susulan dari kiriman yang sama: nomor antrian dipertahankan,
-    /// JUMLAH_DUS dinaikkan, dan yang dicetak hanya label dus yang baru.
+    /// Dus susulan dari kiriman yang sama: tiap kardus baru mendapat nomor
+    /// antriannya sendiri, JUMLAH_DUS naik di seluruh kardus sekiriman, dan
+    /// yang dicetak hanya label kardus yang baru.
     /// </summary>
     private async Task TambahDusAsync(PaketPenerimaan penerimaan, int tambahan)
     {
-        var sebelum = penerimaan.JumlahDus;
-
         try
         {
-            var total = await _repo.TambahDusAsync(penerimaan, tambahan);
+            var baru = await _repo.TambahDusAsync(penerimaan, tambahan, _ipLokal);
 
-            _aktif = penerimaan;
-            _cetakMulaiDus = sebelum + 1;
+            if (baru.Count == 0)
+            {
+                Warn("Tidak ada dus yang ditambahkan.");
+                return;
+            }
+
+            _aktif = baru[0];
+            _cetak = baru;
 
             TampilkanKeForm(_aktif);
             btnSimpan.Enabled = false;
             btnCetak.Enabled = true;
 
-            Info($"Dus ditambahkan. {penerimaan.NomorAntrian} kini {total} dus - "
-               + $"cetak label DUS {sebelum + 1} sampai {total}.");
+            Info($"{baru.Count} dus ditambahkan ke kiriman {penerimaan.KirimanId} - "
+               + $"kini {penerimaan.JumlahDus} dus. Cetak label DUS {baru[0].NomorDus} "
+               + $"sampai {baru[^1].NomorDus}.");
         }
         catch (Exception ex)
         {
@@ -334,10 +357,29 @@ public partial class MainForm : Form
         SetBusy(true);
         try
         {
-            var tersimpan = await _repo.SimpanPenerimaanAsync(_aktif, _ipLokal);
-            _aktif = tersimpan;
+            var hasil = await _repo.SimpanPenerimaanAsync(_aktif, _ipLokal);
+
+            // Tiap kardus punya nomor antriannya sendiri; yang ditampilkan di
+            // form adalah kardus pertama, dan yang dicetak seluruhnya.
+            _aktif = hasil.Pertama;
+            _cetak = hasil.Kardus;
+
             TampilkanKeForm(_aktif);
-            Info($"Berhasil disimpan. Nomor antrian: {tersimpan.NomorAntrian}");
+
+            if (hasil.Lengkap)
+            {
+                Info(hasil.Kardus.Count == 1
+                    ? $"Berhasil disimpan. Nomor antrian: {_aktif.NomorAntrian}"
+                    : $"Berhasil disimpan. {hasil.Kardus.Count} dus, nomor antrian "
+                      + $"{_aktif.NomorAntrian} sampai {hasil.Kardus[^1].NomorAntrian}.");
+            }
+            else
+            {
+                // Sebagian kardus sudah masuk. Melaporkannya sebagai gagal
+                // total akan membuat petugas menyimpan ulang, dan kiriman yang
+                // sama tercatat dua kali.
+                Warn(hasil.Peringatan!);
+            }
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
@@ -360,34 +402,35 @@ public partial class MainForm : Form
 
     private void btnCetak_Click(object? sender, EventArgs e)
     {
-        if (_aktif is null || !_aktif.SiapCetak)
+        if (_cetak.Count == 0 || _aktif is null || !_aktif.SiapCetak)
         {
             Warn("Label baru bisa dicetak setelah penerimaan tersimpan dan nomor antrian terbit.");
             return;
         }
 
-        Cetak(_aktif, _cetakMulaiDus);
+        Cetak(_cetak);
     }
 
     /// <summary>Dipakai tab Penerimaan maupun tombol Cetak Ulang di tab Daftar Antrian.</summary>
-    private void Cetak(PaketPenerimaan paket, int dusMulai = 1)
+    private void Cetak(IReadOnlyList<PaketPenerimaan> kardus)
     {
+        if (kardus.Count == 0) return;
+
         try
         {
             if (_settings.Printer.PakaiZpl)
             {
-                var zpl = LabelTemplate.Build(paket, _settings.Printer, dusMulai);
+                var zpl = LabelTemplate.Build(kardus, _settings.Printer);
                 RawPrinterHelper.SendString(_settings.Printer.Name, zpl);
             }
             else
             {
                 // Printer biasa tidak mengerti ZPL - kirim data mentah ke sana
                 // menghasilkan berkas rusak, jadi labelnya digambar.
-                LabelRenderer.Print(paket, _settings.Printer, dusMulai);
+                LabelRenderer.Print(kardus, _settings.Printer);
             }
 
-            var jumlah = Math.Max(1, paket.JumlahDus) - dusMulai + 1;
-            Info($"{jumlah} label {paket.NomorAntrian} dikirim ke {_settings.Printer.Name}.");
+            Info($"{kardus.Count} label {kardus[0].NomorAntrian} dikirim ke {_settings.Printer.Name}.");
         }
         catch (Exception ex)
         {
@@ -533,7 +576,7 @@ public partial class MainForm : Form
     private void Kosongkan()
     {
         _aktif = null;
-        _cetakMulaiDus = 1;
+        _cetak = new List<PaketPenerimaan>();
         txtScan.Clear();
         txtResi.Clear();
         cboEkspedisi.Text = "";

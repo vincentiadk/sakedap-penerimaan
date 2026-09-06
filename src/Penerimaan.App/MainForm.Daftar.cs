@@ -32,9 +32,13 @@ public partial class MainForm
             _daftar.AddRange(hasil);
             TampilkanDaftar();
 
+            // Satu baris = satu kardus, jadi jumlah baris bukan jumlah
+            // kiriman. Keduanya disebut supaya angkanya tidak salah dibaca.
+            var kiriman = hasil.Select(p => p.KirimanId).Distinct().Count();
+
             Info(hasil.Count == 0
                 ? "Tidak ada data pada rentang tanggal ini."
-                : $"{hasil.Count} penerimaan dimuat.");
+                : $"{hasil.Count} dus dari {kiriman} kiriman dimuat.");
         }
         catch (Exception ex)
         {
@@ -60,6 +64,7 @@ public partial class MainForm
                 p.WaktuTerima == default ? "" : p.WaktuTerima.ToString("dd/MM/yyyy HH:mm"),
                 p.NamaPetugasPenerima,
                 p.NomorAntrian,
+                $"{p.NomorDus}/{p.JumlahDus}",
                 p.Ekspedisi,
                 p.JenisMedia,
                 p.LokasiNama,
@@ -102,9 +107,15 @@ public partial class MainForm
         SetBusy(true);
         try
         {
-            await _repo.UbahAsync(paket);
-            TampilkanDaftar();
-            Info($"{paket.NomorAntrian} berhasil diubah.");
+            // Data seperti nama petugas dan waktu terima berulang di tiap
+            // kardus, jadi koreksinya menyentuh seluruh kiriman - kalau tidak,
+            // kiriman yang sama akan menyebutkan dua nama petugas berbeda.
+            var kena = await _repo.UbahAsync(paket);
+            await MuatDaftarAsync();
+
+            Info(kena == 1
+                ? $"{paket.NomorAntrian} berhasil diubah."
+                : $"Kiriman {paket.KirimanId} berhasil diubah ({kena} dus).");
         }
         catch (Exception ex)
         {
@@ -129,14 +140,20 @@ public partial class MainForm
             return;
         }
 
+        // Yang dihapus SELURUH kiriman, bukan baris yang dipilih saja -
+        // menyisakan kardus timpang yang mengaku "dus 2 dari 4" padahal
+        // saudaranya sudah hilang dari daftar justru lebih membingungkan.
+        var sekiriman = paket.JumlahDus;
+
         var jawab = MessageBox.Show(this,
-            $"Hapus penerimaan {paket.NomorAntrian}?{Environment.NewLine}{Environment.NewLine}"
+            $"Hapus seluruh kiriman {paket.KirimanId}?{Environment.NewLine}{Environment.NewLine}"
             + $"Resi: {(paket.NomorResi.Length == 0 ? "-" : paket.NomorResi)}{Environment.NewLine}"
             + $"Diterima: {paket.WaktuTerima:dd/MM/yyyy HH:mm} oleh {paket.NamaPetugasPenerima}"
             + $"{Environment.NewLine}{Environment.NewLine}"
-            + "Nomor antrian ini tidak akan dipakai ulang, dan label yang sudah tercetak "
+            + $"{sekiriman} dus akan dihapus, termasuk {paket.NomorAntrian} yang Anda pilih. "
+            + "Nomor antriannya tidak akan dipakai ulang, dan label yang sudah tercetak "
             + "harus dilepas dari kardusnya.",
-            "Hapus penerimaan", MessageBoxButtons.YesNo, MessageBoxIcon.Warning,
+            "Hapus kiriman", MessageBoxButtons.YesNo, MessageBoxIcon.Warning,
             MessageBoxDefaultButton.Button2);
 
         if (jawab != DialogResult.Yes) return;
@@ -144,8 +161,8 @@ public partial class MainForm
         SetBusy(true);
         try
         {
-            await _repo.HapusAsync(paket);
-            Info($"{paket.NomorAntrian} dihapus.");
+            var kena = await _repo.HapusAsync(paket);
+            Info($"Kiriman {paket.KirimanId} dihapus ({kena} dus).");
             await MuatDaftarAsync();
         }
         catch (Exception ex)
@@ -158,12 +175,18 @@ public partial class MainForm
         }
     }
 
+    /// <summary>
+    /// Cetak ulang label satu kardus - kardus yang barisnya dipilih. Bukan
+    /// seluruh kiriman: label yang rusak atau terlepas biasanya cuma satu, dan
+    /// mencetak empat label baru untuk kardus yang labelnya masih menempel
+    /// hanya membuat kardus punya dua label dengan nomor berbeda.
+    /// </summary>
     private void btnCetakUlang_Click(object? sender, EventArgs e)
     {
         if (lvDaftar.SelectedItems.Count == 0) return;
 
-        var paket = _daftar[lvDaftar.SelectedItems[0].Index];
-        Cetak(paket);
+        var kardus = _daftar[lvDaftar.SelectedItems[0].Index];
+        Cetak(new[] { kardus });
     }
 
     private void btnUnduh_Click(object? sender, EventArgs e)
@@ -200,7 +223,7 @@ public partial class MainForm
     private string BuatCsv()
     {
         var sb = new StringBuilder();
-        sb.AppendLine("No;Tanggal Terima;Nama Petugas;Nomor Antrian;Ekspedisi;Jenis Media;Lokasi;Nomor Resi");
+        sb.AppendLine("No;Tanggal Terima;Nama Petugas;Nomor Antrian;Kiriman;Dus;Dari;Ekspedisi;Jenis Media;Lokasi;Nomor Resi");
 
         for (var i = 0; i < _daftar.Count; i++)
         {
@@ -210,6 +233,11 @@ public partial class MainForm
                 Sel(p.WaktuTerima == default ? "" : p.WaktuTerima.ToString("dd/MM/yyyy HH:mm")),
                 Sel(p.NamaPetugasPenerima),
                 Sel(p.NomorAntrian),
+                // Kiriman, nomor dus, dan totalnya jadi kolom terpisah supaya
+                // baris-baris satu kiriman bisa dikelompokkan di Excel.
+                Sel(p.KirimanId),
+                p.NomorDus,
+                p.JumlahDus,
                 Sel(p.Ekspedisi),
                 Sel(p.JenisMedia),
                 Sel(p.LokasiNama),

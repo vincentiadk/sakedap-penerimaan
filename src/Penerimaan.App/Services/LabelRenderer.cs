@@ -15,18 +15,22 @@ namespace Penerimaan.App.Services;
 /// </summary>
 public static class LabelRenderer
 {
-    /// <param name="dusMulai">
-    /// Dus pertama yang dicetak. Dipakai saat dus susulan datang: labelnya
-    /// melanjutkan penomoran, dan label yang sudah tertempel tidak dicetak ulang.
-    /// </param>
-    public static void Print(PaketPenerimaan paket, KonfigurasiPrinter printer, int dusMulai = 1)
+    /// <summary>
+    /// Cetak label untuk kardus yang diberikan. Tiap kardus punya nomor
+    /// antriannya sendiri, jadi daftar inilah yang menentukan apa yang keluar -
+    /// bukan penghitungan "mulai dari dus ke berapa" seperti dulu.
+    /// </summary>
+    public static void Print(
+        IReadOnlyList<PaketPenerimaan> kardus, KonfigurasiPrinter printer)
     {
-        if (!paket.SiapCetak)
+        if (kardus.Count == 0) return;
+
+        if (kardus.Any(k => !k.SiapCetak))
             throw new InvalidOperationException(
                 "Nomor antrian belum ada. Label hanya bisa dicetak setelah penerimaan tersimpan.");
 
         using var doc = new PrintDocument();
-        doc.DocumentName = $"Label {paket.NomorAntrian}";
+        doc.DocumentName = $"Label {kardus[0].NomorAntrian}";
 
         if (!string.IsNullOrWhiteSpace(printer.Name))
             doc.PrinterSettings.PrinterName = printer.Name;
@@ -49,20 +53,25 @@ public static class LabelRenderer
         doc.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
         doc.OriginAtMargins = false;
 
-        // Semua dus dicetak sebagai halaman berurutan dalam SATU pekerjaan,
+        // Semua kardus dicetak sebagai halaman berurutan dalam SATU pekerjaan,
         // sehingga Print to PDF menghasilkan satu berkas berisi semua label.
-        var total = Math.Max(1, paket.JumlahDus);
-        var dus = Math.Clamp(dusMulai, 1, total) - 1;
+        var indeks = 0;
 
         doc.PrintPage += (_, e) =>
         {
-            dus++;
-            Gambar(e, paket, printer, dus, total);
-            e.HasMorePages = dus < total;
+            var k = kardus[indeks];
+            Gambar(e, k, printer, k.NomorDus, Math.Max(k.NomorDus, k.JumlahDus));
+
+            indeks++;
+            e.HasMorePages = indeks < kardus.Count;
         };
 
         doc.Print();
     }
+
+    /// <summary>Satu kardus saja.</summary>
+    public static void Print(PaketPenerimaan kardus, KonfigurasiPrinter printer)
+        => Print(new[] { kardus }, printer);
 
     private static void Gambar(
         PrintPageEventArgs e, PaketPenerimaan paket, KonfigurasiPrinter printer, int dus, int total)
@@ -104,7 +113,7 @@ public static class LabelRenderer
             new RectangleF(0, tinggi * 0.45f, lebar, tinggi * 0.17f), tengah);
 
         if (printer.IncludeBarcode)
-            GambarBarcode(g, NomorAntrian.Barcode(paket.NomorAntrian, dus), lebar, tinggi);
+            GambarBarcode(g, NomorAntrian.Barcode(paket.NomorAntrian), lebar, tinggi);
     }
 
     /// <summary>

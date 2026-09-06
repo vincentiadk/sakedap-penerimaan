@@ -67,10 +67,10 @@ public sealed class OutboxQueue
                 paket = _items[0];
             }
 
-            PaketPenerimaan tersimpan;
+            HasilSimpan hasil;
             try
             {
-                tersimpan = await api.SimpanPenerimaanAsync(paket, ip, ct);
+                hasil = await api.SimpanPenerimaanAsync(paket, ip, ct);
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
             {
@@ -82,7 +82,10 @@ public sealed class OutboxQueue
                 _items.Remove(paket);
                 Persist();
             }
-            terkirim.Add(tersimpan);
+
+            // Satu antrean offline menghasilkan satu baris per kardus. Semuanya
+            // dikembalikan karena semuanya perlu dicetak labelnya.
+            terkirim.AddRange(hasil.Kardus);
         }
 
         return terkirim;

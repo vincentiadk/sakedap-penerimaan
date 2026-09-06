@@ -63,6 +63,7 @@ partial class MainForm
         colTanggal = new ColumnHeader();
         colPetugas = new ColumnHeader();
         colAntrian = new ColumnHeader();
+        colDus = new ColumnHeader();
         colEkspedisi = new ColumnHeader();
         colMedia = new ColumnHeader();
         colLokasi = new ColumnHeader();
@@ -427,7 +428,7 @@ partial class MainForm
         btnMuat.Click += btnMuat_Click;
 
         lvDaftar.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-        lvDaftar.Columns.AddRange(new[] { colNo, colTanggal, colPetugas, colAntrian, colEkspedisi, colMedia, colLokasi, colResi });
+        lvDaftar.Columns.AddRange(new[] { colNo, colTanggal, colPetugas, colAntrian, colDus, colEkspedisi, colMedia, colLokasi, colResi });
         lvDaftar.FullRowSelect = true;
         lvDaftar.Location = new Point(16, 56);
         lvDaftar.MultiSelect = false;
@@ -447,6 +448,8 @@ partial class MainForm
         colPetugas.Width = 130;
         colAntrian.Text = "Nomor Antrian";
         colAntrian.Width = 160;
+        colDus.Text = "Dus";
+        colDus.Width = 60;
         colEkspedisi.Text = "Ekspedisi";
         colEkspedisi.Width = 120;
         colMedia.Text = "Jenis Media";
@@ -625,6 +628,7 @@ partial class MainForm
     private ColumnHeader colTanggal;
     private ColumnHeader colPetugas;
     private ColumnHeader colAntrian;
+    private ColumnHeader colDus;
     private ColumnHeader colEkspedisi;
     private ColumnHeader colMedia;
     private ColumnHeader colLokasi;
