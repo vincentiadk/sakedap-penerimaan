@@ -124,6 +124,11 @@ public sealed class PenerimaanRepository : IDisposable
     /// tabel letter - penerbit bisa salah ketik, atau satu resi dipakai untuk
     /// beberapa surat penyerahan. Kalau lebih dari satu, petugas yang memilih.
     /// Daftar kosong berarti resi tidak terdaftar dan petugas lanjut manual.
+    ///
+    /// Dibatasi satuan kerja, sama seperti pembacaan LETTER_ANTRIAN. Nomor
+    /// resi hanya unik di dalam satu ekspedisi, bukan antar satuan kerja:
+    /// tanpa saringan ini, satu scan di provinsi bisa mengisi form dengan
+    /// surat penyerahan milik Perpusnas hanya karena resinya kebetulan sama.
     /// </summary>
     public async Task<List<PaketPenerimaan>> CariResiAsync(string nomorResi, CancellationToken ct = default)
     {
@@ -150,6 +155,7 @@ public sealed class PenerimaanRepository : IDisposable
             LEFT JOIN {Skema.TabelPenerbit} p
                    ON l.{Skema.KolPenerbitId} = p.{Skema.KolPenerbitPk}
             WHERE l.{Skema.KolNomorResi} = {InlisClient.Kutip(nomorResi)}
+              AND l.{Skema.KolLetterBranchId} = {InlisClient.Kutip(BranchWajib())}
             GROUP BY l.{Skema.KolLetterId},
                      p.{Skema.KolPenerbitNama},
                      jp.{Skema.KolJasaPengirimanNama}
@@ -220,9 +226,45 @@ public sealed class PenerimaanRepository : IDisposable
             }
 
             tersimpan.Add(kardus);
+
+            // Cukup sekali sekiriman: yang ditandai surat penyerahannya, dan
+            // keempat kardus menunjuk letter yang sama.
+            if (nomorDus == 1)
+                await TandaiLetterTerkirimAsync(kardus, ct);
         }
 
         return new HasilSimpan(tersimpan, null);
+    }
+
+    /// <summary>
+    /// Tandai surat penyerahan sebagai TERKIRIM begitu paketnya benar-benar
+    /// sampai di pos penerimaan.
+    ///
+    /// Hanya jalur SAKEDAP: jalur manual tidak punya baris letter untuk
+    /// ditandai. Ini SATU-SATUNYA tempat aplikasi menulis ke tabel letter -
+    /// selebihnya letter hanya dibaca.
+    ///
+    /// Kegagalannya tidak dilempar. Kardusnya sudah tersimpan dan nomor
+    /// antriannya sudah terpakai, jadi menggagalkan penyimpanan di sini justru
+    /// membuat petugas menyimpan ulang kiriman yang sama. Status letter yang
+    /// tertinggal masih bisa dikoreksi dari SAKEDAP.
+    /// </summary>
+    private async Task TandaiLetterTerkirimAsync(PaketPenerimaan kardus, CancellationToken ct)
+    {
+        if (kardus.Sumber != SumberData.Sakedap) return;
+        if (kardus.LetterId is not { Length: > 0 } letterId) return;
+
+        try
+        {
+            await _inlis.UpdateAsync("letter", letterId, new Dictionary<string, object?>
+            {
+                ["status"] = "TERKIRIM"
+            }, withTimestamp: true, ct);
+        }
+        catch
+        {
+            // sengaja diabaikan - lihat alasannya di ringkasan
+        }
     }
 
     /// <summary>
@@ -967,11 +1009,13 @@ public sealed class PenerimaanRepository : IDisposable
 /// Nama tabel dan kolom INLIS.
 ///
 /// Dua kelompok:
-///   - tabel INLIS yang sudah ada, hanya DIBACA (letter, letter_detail,
-///     jasa_pengiriman, penerbit)
-///   - tabel penerimaan paket milik fitur ini, satu-satunya yang DITULIS
+///   - tabel INLIS yang sudah ada, hampir seluruhnya hanya DIBACA (letter,
+///     letter_detail, jasa_pengiriman, penerbit)
+///   - tabel penerimaan paket milik fitur ini, yang bebas ditulis
 ///
-/// Aplikasi tidak pernah menulis ke letter. Lihat docs/SPEC.md.
+/// Satu-satunya tulisan ke tabel INLIS yang sudah ada adalah LETTER.STATUS,
+/// diisi "TERKIRIM" saat paketnya sampai - lihat TandaiLetterTerkirimAsync
+/// dan docs/SPEC.md.
 /// </summary>
 internal static class Skema
 {
@@ -986,6 +1030,13 @@ internal static class Skema
 
     public const string KolLetterId = "letter_id";
     public const string KolNomorResi = "receipt_no";
+
+    /// <summary>
+    /// Satuan kerja pemilik surat penyerahan. Namanya sama dengan kolom
+    /// BRANCH_ID di tabel-tabel fitur ini, tapi sengaja dipisah konstantanya:
+    /// LETTER milik INLIS dan bisa berubah tanpa sepengetahuan fitur ini.
+    /// </summary>
+    public const string KolLetterBranchId = "branch_id";
     public const string KolJasaPengirimanId = "jasa_pengiriman_id";
     public const string KolPenerbitId = "penerbit_id";
 
