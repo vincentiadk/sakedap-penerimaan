@@ -108,9 +108,15 @@ sendiri belum konsisten (`KCKR_08_16`, `KCKR_08_135`, `KCKR_08_1335`, dan
 
 ## Perubahan skema INLIS yang dibutuhkan
 
-Empat tabel baru. Tabel `letter` tidak diubah sama sekali - aplikasi ini hanya
-membacanya, bersama `letter_detail`, `penerbit`, `jasa_pengiriman`, dan
-`collectionmedias`.
+Empat tabel baru. Struktur `letter` tidak diubah, tapi isinya ikut disentuh:
+`LETTER.STATUS` diisi `TERKIRIM` saat paket jalur SAKEDAP tercatat di pos
+penerimaan, supaya penerbit bisa melihat kirimannya sudah sampai tanpa
+menunggu paketnya dibuka Pegawai KCKR. Selebihnya `letter` hanya dibaca,
+bersama `letter_detail`, `penerbit`, `jasa_pengiriman`, dan `collectionmedias`.
+
+Penandaan itu satu-satunya tulisan aplikasi ini ke tabel INLIS yang sudah ada,
+dan sengaja tidak boleh menggagalkan penyimpanan: kardus yang sudah masuk
+beserta nomor antriannya lebih penting daripada status yang tertinggal.
 
 | Tabel | Isi |
 |---|---|
@@ -134,7 +140,7 @@ Field-nya bernama **`BranchId`**, dibaca dari `data` pada respons `isloginvalid`
 
 **Status per September 2026: perubahan API-nya belum terpasang.** Sampai
 selesai, nilainya diisi lewat `Lokasi.BranchIdOverride` di
-`appsettings.local.json` (berkas per-mesin, tidak ikut repositori). Respons API
+`C:\ProgramData\SAKEDAP\Penerimaan\settings.json` (berkas per-mesin, tidak ikut repositori). Respons API
 selalu menang bila memuatnya, jadi begitu perubahan itu naik, nilai cadangan
 otomatis tidak terpakai dan barisnya bisa dibuang tanpa mengubah apa pun -
 tidak perlu menyentuh konfigurasi PC mana pun. Selama masih memakai cadangan,
@@ -162,6 +168,13 @@ Tiga hal yang dijaga database, bukan sekadar disiplin aplikasi:
 pencarian barcode, dan pengecekan resi ganda. Penyaringnya dipasang di dalam
 repository, bukan diserahkan ke tiap pemanggil, supaya tidak ada jalur baca
 yang bisa lupa memasangnya.
+
+Pencarian resi ke tabel `letter` ikut disaring `LETTER.BRANCH_ID`, walau tabel
+itu bukan milik fitur ini. Nomor resi hanya unik di dalam satu ekspedisi, bukan
+antar satuan kerja - tanpa saringan ini satu scan di provinsi bisa mengisi form
+otomatis dengan surat penyerahan milik Perpusnas. Dengan begitu jalur A
+(auto-fill dari SAKEDAP) dan pengecekan resi ganda memakai batas yang sama;
+sebelumnya hanya yang kedua yang terpagari.
 
 ### Deret nomor antrian per satuan kerja
 

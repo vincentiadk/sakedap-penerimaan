@@ -74,11 +74,22 @@ public static class LabelTemplate
         {
             // Code128 dari nomor antrian, supaya paket bisa ditemukan kembali
             // dengan scan, bukan mengetik ulang nomornya.
-            sb.Append($"^FO0,{Skala(tinggi, 0.65)}^BY2");
-            sb.Append($"^FB{lebar},1,0,C,0");
+            //
             // Isi barcode persis sama dengan nomor antrian yang tercetak besar
             // di atasnya - nomor itu sudah milik kardus ini sendiri.
-            sb.Append($"^BCN,{Skala(tinggi, 0.26)},N,N,N^FD{Bersihkan(NomorAntrian.Barcode(paket.NomorAntrian), 30)}^FS");
+            var isi = Bersihkan(NomorAntrian.Barcode(paket.NomorAntrian), 30);
+
+            // ^FB TIDAK meratakan barcode: perataannya hanya berlaku untuk
+            // field teks, jadi ^BC selalu mulai persis di titik ^FO dan
+            // menempel ke tepi kiri. Titik tengahnya karena itu dihitung
+            // sendiri dari lebar barcode - dan lebar itu bisa dihitung tepat
+            // karena Code 128 punya jumlah modul yang pasti untuk tiap teks.
+            var modulTotal = Code128.JumlahModul(isi);
+            var modul = ModulMuat(modulTotal, lebar);
+            var x = Math.Max(0, (lebar - modulTotal * modul) / 2);
+
+            sb.Append($"^FO{x},{Skala(tinggi, 0.65)}^BY{modul}");
+            sb.Append($"^BCN,{Skala(tinggi, 0.26)},N,N,N^FD{isi}^FS");
         }
 
         sb.Append("^XZ");
@@ -103,6 +114,28 @@ public static class LabelTemplate
 
         sb.Append($"^FO0,{y}^A0N,{tinggiFont},{lebarFont}");
         sb.Append($"^FB{lebar},1,0,C,0^FD{teks}^FS");
+    }
+
+    /// <summary>
+    /// Lebar modul terbesar yang barcode-nya masih muat di label.
+    ///
+    /// Tidak dipatok tetap karena panjang nomor antrian berubah-ubah -
+    /// KCKR_0826_7 sampai KCKR_11_0826_12345. Nomor pendek jadi bisa memakai
+    /// batang yang lebih tebal, yang lebih mudah terbaca scanner, tanpa
+    /// membuat nomor panjang melebar keluar label.
+    ///
+    /// Sisa 16% lebar label dibagi dua sebagai zona tenang kiri-kanan. Code
+    /// 128 mensyaratkan minimal 10 modul di tiap sisi; pada label 100 mm @203
+    /// dpi jatah itu setara puluhan modul, jadi selalu lebih dari cukup.
+    /// </summary>
+    private static int ModulMuat(int modulTotal, int lebar)
+    {
+        var tersedia = lebar * 0.84;
+
+        for (var modul = 3; modul > 1; modul--)
+            if (modulTotal * modul <= tersedia) return modul;
+
+        return 1;
     }
 
     private static int Skala(int tinggi, double rasio) => (int)Math.Round(tinggi * rasio);
