@@ -34,7 +34,7 @@ Verifikasi kredensial pegawai. Yang dibaca aplikasi dari `Data`:
 
 **`BranchId` belum ada di respons saat ini; perubahannya masih ditunggu.**
 Sampai terpasang, aplikasi jatuh ke `Lokasi.BranchIdOverride` di
-`appsettings.local.json`. Respons API selalu menang begitu field-nya muncul,
+`C:\ProgramData\SAKEDAP\Penerimaan\settings.json` (per mesin). Respons API selalu menang begitu field-nya muncul,
 jadi tidak ada konfigurasi yang perlu diubah saat perubahan itu naik.
 
 Nilai `0` diperlakukan sama dengan tidak ada - itu bukan satuan kerja yang sah.

@@ -631,7 +631,15 @@ public partial class MainForm : Form
         if (cboPrinter.SelectedItem is not string nama) return;
 
         _settings.Printer.Name = nama;
-        _settings.Save();
+        try
+        {
+            _settings.Save();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Pilihan tetap berlaku untuk sesi ini; hanya tidak diingat.
+            Info($"Pilihan printer tidak tersimpan: {ex.Message}");
+        }
     }
 
     private void UpdateStatus() =>

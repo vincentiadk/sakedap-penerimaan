@@ -158,7 +158,7 @@ public partial class MainForm
                  + "sehingga lokasi tidak bisa ditentukan."
                  + $"{Environment.NewLine}Field yang dikembalikan API: {field}"
                  + $"{Environment.NewLine}Sementara ini, isi Lokasi.BranchIdOverride "
-                 + "di appsettings.json (37 untuk Perpusnas).";
+                 + @"di C:\ProgramData\SAKEDAP\Penerimaan\settings.json (37 untuk Perpusnas).";
         }
 
         // Satuan kerja terbaca, tapi IP ini belum terdaftar untuknya. Ini

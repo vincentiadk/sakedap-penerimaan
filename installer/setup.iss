@@ -28,6 +28,17 @@ Name: "id"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "Buat shortcut di Desktop"; GroupDescription: "Shortcut:"
 
+[Dirs]
+; Setting per mesin (token INLIS terenkripsi DPAPI, branch, printer). Harus
+; bisa ditulis user biasa karena aplikasi berjalan tanpa admin. Sengaja tidak
+; dihapus saat uninstall, supaya pasang ulang tidak perlu mengisi token lagi.
+Name: "{commonappdata}\SAKEDAP\Penerimaan"; Permissions: users-modify; Flags: uninsneveruninstall
+
+[InstallDelete]
+; Format lama: token polos di samping exe. Aplikasi sudah memigrasikannya ke
+; ProgramData terenkripsi saat pertama dijalankan; sisa berkasnya dibuang di sini.
+Type: files; Name: "{app}\appsettings.local.json"
+
 [Files]
 ; Sumber = hasil dotnet publish (self-contained, lihat README)
 Source: "..\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs

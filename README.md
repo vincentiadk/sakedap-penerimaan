@@ -61,6 +61,34 @@ Hasilnya ada di `dist/SAKEDAP-Penerimaan-Setup-1.0.0.exe`.
 - Autentikasi ke API belum ada. `ApiClient.SetToken()` sudah disiapkan, tapi
   layar login dan penyimpanan token belum dibuat
 
+## Koneksi INLIS (URL API & token)
+
+Token master INLIS **tidak** disimpan di repositori, `appsettings.json`, maupun
+installer. Saat pertama dijalankan di PC baru, muncul layar **Koneksi INLIS**
+untuk diisi admin. Hasilnya disimpan di:
+
+```
+C:\ProgramData\SAKEDAP\Penerimaan\settings.json
+```
+
+- `Inlis.ApiUrl` - URL API, **polos**, bisa diganti per PC. Kosong berarti
+  memakai URL bawaan dari `appsettings.json`.
+- `Inlis.TokenTerenkripsi` - token, **terenkripsi** DPAPI (scope mesin). Hanya
+  bisa dibuka di PC yang sama; kalau berkas disalin ke PC lain, aplikasi
+  meminta token lagi.
+
+Berkas itu juga memuat `Lokasi.BranchIdOverride`, `Lokasi.IpOverride`, dan
+printer pilihan operator.
+
+Untuk mengganti URL API atau token:
+
+```bash
+Penerimaan.exe --atur-koneksi
+```
+
+DPAPI melindungi dari kebocoran lewat repositori, installer, atau salinan
+berkas - bukan dari orang yang sudah bisa menjalankan program di PC itu.
+
 ## Catatan printer
 
 Data dikirim sebagai RAW ke spooler Windows, bukan lewat GDI/`PrintDocument`.

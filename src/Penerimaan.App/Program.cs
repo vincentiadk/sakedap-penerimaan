@@ -7,11 +7,28 @@ namespace Penerimaan.App;
 internal static class Program
 {
     [STAThread]
-    private static void Main()
+    private static void Main(string[] args)
     {
         ApplicationConfiguration.Initialize();
 
         var settings = AppSettings.Load();
+
+        // Token tidak lagi ikut installer. PC baru (atau yang berkas
+        // settingnya disalin dari PC lain) diminta mengisinya sekali.
+        // --atur-token tetap diterima sebagai nama lama.
+        var aturKoneksi = args.Any(a =>
+            a.Equals("--atur-koneksi", StringComparison.OrdinalIgnoreCase)
+            || a.Equals("--atur-token", StringComparison.OrdinalIgnoreCase));
+
+        bool KoneksiKurang() =>
+            string.IsNullOrWhiteSpace(settings.Inlis.Token) || string.IsNullOrWhiteSpace(settings.Inlis.ApiUrl);
+
+        if (aturKoneksi || KoneksiKurang())
+        {
+            using var form = new KoneksiForm(settings);
+            if (form.ShowDialog() != DialogResult.OK && KoneksiKurang())
+                return;
+        }
 
         // Repository hidup selama aplikasi berjalan: sesi hasil login dipakai
         // ulang oleh MainForm, jadi jangan dibuat dua kali.

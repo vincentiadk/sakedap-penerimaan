@@ -57,7 +57,7 @@ public sealed class PenerimaanRepository : IDisposable
                 ? ""
                 : $" Field yang dikembalikan API login: {field}.")
             + " Selama isloginvalid belum memuat BRANCH_ID, isi "
-            + "Lokasi.BranchIdOverride di appsettings.json (37 untuk Perpusnas).");
+            + @"Lokasi.BranchIdOverride di C:\ProgramData\SAKEDAP\Penerimaan\settings.json (37 untuk Perpusnas).");
     }
 
     /// <summary>Potongan WHERE pembatas satuan kerja untuk tabel LETTER_ANTRIAN.</summary>
