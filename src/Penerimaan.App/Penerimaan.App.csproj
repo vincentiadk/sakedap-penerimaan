@@ -9,6 +9,9 @@
     <RootNamespace>Penerimaan.App</RootNamespace>
     <AssemblyName>Penerimaan</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Dibandingkan dengan tag rilis GitHub untuk pembaruan otomatis.
+         Saat rilis, GitHub Actions menimpanya dengan -p:Version=<tag>. -->
+    <Version>1.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

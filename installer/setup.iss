@@ -2,7 +2,10 @@
 ; Download Inno Setup: https://jrsoftware.org/isdl.php
 
 #define AppName "SAKEDAP Penerimaan"
-#define AppVersion "1.0.0"
+; Versi diisi GitHub Actions dari tag rilis: iscc /DAppVersion=1.2.3 ...
+#ifndef AppVersion
+  #define AppVersion "1.0.0"
+#endif
 #define AppPublisher "SAKEDAP"
 #define AppExeName "Penerimaan.exe"
 
@@ -21,6 +24,12 @@ WizardStyle=modern
 ; Butuh admin karena install ke Program Files
 PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64compatible
+; Pembaruan otomatis menjalankan installer ini saat aplikasi masih terbuka.
+; Installer menutupnya lewat Restart Manager; menjalankan ulang ditangani
+; entri [Run] khusus mode senyap di bawah.
+CloseApplications=yes
+RestartApplications=no
+VersionInfoVersion={#AppVersion}
 
 [Languages]
 Name: "id"; MessagesFile: "compiler:Default.isl"
@@ -49,3 +58,5 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: deskto
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "Jalankan {#AppName}"; Flags: nowait postinstall skipifsilent
+; Setelah pembaruan otomatis (/SILENT), buka kembali aplikasinya.
+Filename: "{app}\{#AppExeName}"; Flags: nowait runasoriginaluser; Check: WizardSilent

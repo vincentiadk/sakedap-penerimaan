@@ -30,6 +30,19 @@ internal static class Program
                 return;
         }
 
+        // Cek pembaruan sebelum login: kalau diperbarui, aplikasi ditutup
+        // sebelum ada sesi atau transaksi yang terputus di tengah jalan.
+        // Task.Run supaya await di dalamnya tidak bergantung pada
+        // SynchronizationContext WinForms yang belum berjalan.
+        var updater = new UpdateChecker(settings.Update);
+        var rilis = Task.Run(() => updater.CariVersiBaruAsync()).GetAwaiter().GetResult();
+        if (rilis is not null)
+        {
+            using var form = new UpdateForm(updater, rilis);
+            if (form.ShowDialog() == DialogResult.OK)
+                return;
+        }
+
         // Repository hidup selama aplikasi berjalan: sesi hasil login dipakai
         // ulang oleh MainForm, jadi jangan dibuat dua kali.
         // BranchIdOverride hanya cadangan selama isloginvalid belum memuat

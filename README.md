@@ -89,6 +89,38 @@ Penerimaan.exe --atur-koneksi
 DPAPI melindungi dari kebocoran lewat repositori, installer, atau salinan
 berkas - bukan dari orang yang sudah bisa menjalankan program di PC itu.
 
+## Rilis & pembaruan otomatis
+
+Rilis dibuat GitHub Actions ([.github/workflows/release.yml](.github/workflows/release.yml))
+setiap ada tag `v*`:
+
+```bash
+git tag v1.1.0
+```
+
+```bash
+git push origin v1.1.0
+```
+
+Workflow mem-publish aplikasi dengan versi dari tag, membuat installer Inno
+Setup, lalu mengunggah `SAKEDAP-Penerimaan-Setup-1.1.0.exe` beserta
+`.exe.sha256`-nya ke GitHub Release. Tag berakhiran `-beta` dsb. menjadi
+prerelease dan tidak diambil pembaruan otomatis.
+
+Saat dibuka, aplikasi mengecek rilis terbaru (paling lama 5 detik; tanpa
+internet langsung lanjut). Bila ada versi lebih baru, petugas ditawari
+**Perbarui sekarang** atau **Nanti**. Installer diunduh, hash SHA256-nya
+dicocokkan, lalu dijalankan senyap; aplikasi tertutup dan terbuka lagi
+setelah selesai. Installer memasang ke Program Files, jadi Windows meminta
+izin administrator (UAC).
+
+Yang tidak tersentuh pembaruan: setting per mesin di `C:\ProgramData` dan
+antrian tertunda di `%LOCALAPPDATA%`.
+
+Pengaturan di `appsettings.json` bagian `Update` (`Aktif`, `GitHubRepo`).
+Repo rilis **harus publik** - GitHub tidak memberi akses rilis repo private
+tanpa token.
+
 ## Catatan printer
 
 Data dikirim sebagai RAW ke spooler Windows, bukan lewat GDI/`PrintDocument`.

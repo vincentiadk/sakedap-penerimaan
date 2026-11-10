@@ -1,0 +1,81 @@
+# Rilis otomatis: push tag v1.2.3 -> build installer -> GitHub Release.
+# Aplikasi yang terpasang mengecek rilis terbaru ini saat dibuka.
+#
+#   git tag v1.1.0
+#   git push origin v1.1.0
+#
+# Tag dengan tanda hubung (v1.1.0-beta) dirilis sebagai prerelease, dan
+# prerelease TIDAK diambil oleh pembaruan otomatis - aman untuk uji coba.
+
+name: Rilis
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  rilis:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Ambil versi dari tag
+        id: versi
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $versi = $tag.TrimStart('v')
+          $inti = $versi.Split('-')[0]
+          if ($inti -notmatch '^\d+\.\d+\.\d+$') { throw "Tag harus berbentuk v1.2.3, dapat: $tag" }
+          "versi=$versi" >> $env:GITHUB_OUTPUT
+          "inti=$inti"   >> $env:GITHUB_OUTPUT
+          "pre=$([int]($versi -ne $inti))" >> $env:GITHUB_OUTPUT
+
+      - name: Pastikan tidak ada token di appsettings.json
+        shell: pwsh
+        run: |
+          $j = Get-Content src/Penerimaan.App/appsettings.json -Raw | ConvertFrom-Json
+          if ($j.Inlis.PSObject.Properties.Name -contains 'Token') { throw "appsettings.json berisi Inlis.Token - jangan dirilis." }
+
+      - name: Publish
+        run: >
+          dotnet publish src/Penerimaan.App -c Release -r win-x64
+          --self-contained true -p:PublishSingleFile=true
+          -p:Version=${{ steps.versi.outputs.inti }}
+          -o publish
+
+      - name: Installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+          }
+          & $iscc "/DAppVersion=${{ steps.versi.outputs.versi }}" installer/setup.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC gagal" }
+
+      - name: SHA256
+        shell: pwsh
+        run: |
+          Get-ChildItem dist/*.exe | ForEach-Object {
+            $h = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "$h  $($_.Name)" | Out-File -Encoding ascii -NoNewline "$($_.FullName).sha256"
+          }
+
+      - name: GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $berkas = @(Get-ChildItem dist/*.exe, dist/*.sha256 | ForEach-Object FullName)
+          $opsi = @("--title", "SAKEDAP Penerimaan ${{ steps.versi.outputs.versi }}", "--generate-notes")
+          if ("${{ steps.versi.outputs.pre }}" -eq "1") { $opsi += "--prerelease" }
+          gh release create "${{ github.ref_name }}" @berkas @opsi
+          if ($LASTEXITCODE -ne 0) { throw "gh release gagal" }

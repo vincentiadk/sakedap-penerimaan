@@ -13,6 +13,7 @@ public sealed class AppSettings
     public InlisSettings Inlis { get; set; } = new();
     public PrinterSettings Printer { get; set; } = new();
     public LokasiSettings Lokasi { get; set; } = new();
+    public UpdateSettings Update { get; set; } = new();
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -252,6 +253,26 @@ public sealed class InlisSettings
     public string Token { get; set; } = "";
 
     public int TimeoutSeconds { get; set; } = 60;
+}
+
+/// <summary>
+/// Pembaruan otomatis dari GitHub Releases. Lihat Services/UpdateChecker.cs.
+/// </summary>
+public sealed class UpdateSettings
+{
+    public bool Aktif { get; set; } = true;
+
+    /// <summary>"pemilik/nama-repo". Repo harus publik.</summary>
+    public string GitHubRepo { get; set; } = "";
+
+    /// <summary>Aset rilis yang dipakai: .exe berawalan ini, plus .sha256-nya.</summary>
+    public string AwalanNamaInstaller { get; set; } = "SAKEDAP-Penerimaan-Setup-";
+
+    /// <summary>
+    /// Pengecekan berjalan sebelum layar login, jadi dibuat singkat: jaringan
+    /// yang lambat tidak boleh menahan petugas lebih dari beberapa detik.
+    /// </summary>
+    public int BatasWaktuCekDetik { get; set; } = 5;
 }
 
 public sealed class LokasiSettings
