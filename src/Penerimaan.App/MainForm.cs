@@ -71,9 +71,11 @@ public partial class MainForm : Form
 
         InitializeComponent();
 
-        // Nama petugas penerima TIDAK diambil dari akun login: satu PC di pos
-        // satpam dipakai bergantian beberapa petugas dengan satu akun aplikasi.
-        // Jadi yang menerima paket diketik per transaksi.
+        // Nama petugas penerima diisi awal dari akun login supaya tidak perlu
+        // diketik, tapi tetap bisa diubah: satu PC di pos satpam bisa dipakai
+        // bergantian beberapa petugas dengan satu akun aplikasi.
+        txtPetugas.Text = petugas.Nama;
+
         // Satuan kerja ikut ditampilkan: satu berkas installer dipakai di
         // Perpusnas maupun provinsi, jadi petugas perlu bisa memastikan
         // aplikasinya mengenali dia sebagai satuan kerja yang benar.
@@ -152,6 +154,15 @@ public partial class MainForm : Form
         }
     }
 
+    protected override void OnLoad(EventArgs e)
+    {
+        base.OnLoad(e);
+
+        // Patokan diambil setelah penskalaan DPI selesai, supaya ukuran awal
+        // yang direkam sudah sesuai layar PC ini.
+        _ = new SkalaTampilan(this);
+    }
+
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
         _jam.Stop();
@@ -216,12 +227,28 @@ public partial class MainForm : Form
             cboMedia.Items.Clear();
             cboMedia.Items.Add(TanpaMedia);
             cboMedia.Items.AddRange(media.Cast<object>().ToArray());
-            cboMedia.SelectedIndex = 0;
+            PilihMediaDefault();
         }
         catch (Exception ex)
         {
             Warn($"Daftar jenis media tidak bisa dimuat: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Sebagian besar paket berisi buku, jadi Monograf dipilih sebagai awal.
+    /// Kalau tidak ada di daftar, kembali ke baris "pilih" supaya petugas
+    /// tetap dipaksa memilih sendiri.
+    /// </summary>
+    private void PilihMediaDefault()
+    {
+        if (cboMedia.Items.Count == 0) return;
+
+        var monograf = cboMedia.Items.OfType<JenisMedia>().FirstOrDefault(m =>
+            m.Nama.Trim().StartsWith("monograf", StringComparison.OrdinalIgnoreCase));
+
+        if (monograf is not null) cboMedia.SelectedItem = monograf;
+        else cboMedia.SelectedIndex = 0;
     }
 
     /// <summary>
@@ -584,7 +611,7 @@ public partial class MainForm : Form
         numJudul.Value = 0;
         numEks.Value = 0;
         numDus.Value = 1;
-        if (cboMedia.Items.Count > 0) cboMedia.SelectedIndex = 0;
+        PilihMediaDefault();
 
         _waktuIkutJam = true;
         SetWaktuTerima(DateTime.Now);

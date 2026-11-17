@@ -43,6 +43,7 @@ partial class MainForm
         numDus = new NumericUpDown();
         lblPetugas = new Label();
         txtPetugas = new TextBox();
+        lblPetugasInfo = new Label();
         lblTerima = new Label();
         dtpTerima = new DateTimePicker();
         lblAntrian = new Label();
@@ -222,6 +223,7 @@ partial class MainForm
         grpPaket.Controls.Add(numDus);
         grpPaket.Controls.Add(lblPetugas);
         grpPaket.Controls.Add(txtPetugas);
+        grpPaket.Controls.Add(lblPetugasInfo);
         grpPaket.Controls.Add(lblTerima);
         grpPaket.Controls.Add(dtpTerima);
         grpPaket.Controls.Add(lblAntrian);
@@ -329,6 +331,15 @@ partial class MainForm
         txtPetugas.Name = "txtPetugas";
         txtPetugas.Size = new Size(260, 27);
         txtPetugas.TabIndex = 11;
+
+        // Nama terisi dari akun login, tapi PC dipakai bergantian - jadi
+        // petugas perlu diingatkan bahwa nama ini boleh diganti.
+        lblPetugasInfo.AutoSize = true;
+        lblPetugasInfo.ForeColor = SystemColors.GrayText;
+        lblPetugasInfo.Location = new Point(470, 182);
+        lblPetugasInfo.Name = "lblPetugasInfo";
+        lblPetugasInfo.Size = new Size(300, 20);
+        lblPetugasInfo.Text = "Otomatis dari akun login - ubah bila bukan Anda";
 
         lblTerima.AutoSize = true;
         lblTerima.Location = new Point(20, 218);
@@ -608,6 +619,7 @@ partial class MainForm
     private NumericUpDown numDus;
     private Label lblPetugas;
     private TextBox txtPetugas;
+    private Label lblPetugasInfo;
     private Label lblTerima;
     private DateTimePicker dtpTerima;
     private Label lblAntrian;
